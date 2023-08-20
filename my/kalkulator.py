@@ -119,81 +119,105 @@ class Kalkulator:
 
     def inaczej(self):
         # m = self.m #okres_kapitalizacji(ciagla)
+        tabela_splat = self.tabela_splat
+
+        def do_doplaty(nr_raty, pozostaly_kapital):
+            if (nr_raty > 120) | (self.rodzaj_rat == RodzajRat.bezpieczny):
+                return 0
+            return round(pozostaly_kapital * ((self.wskaznikBGK / 100) - 0.02) / 12, 2)
+
+        if self.rodzaj_rat == RodzajRat.malejace:
+            kapitalowe, odsetkowe, zadluzenia = self.harm_malejace()
+        if self.rodzaj_rat == RodzajRat.rowne:
+            kapitalowe, odsetkowe, zadluzenia = self.harm_rowne()
+
+        if self.rodzaj_rat == RodzajRat.bezpieczny:
+            kapitalowe, odsetkowe, zadluzenia = self.harm_malejace()
+            kapitalowe_po, odsetkowe_po, zadluzenia_po = self.harm_rowne(
+                pozostalo=zadluzenia[120]
+            )
+
+        for i in range(self.ilosc_rat - 1):
+            numer_raty = i + 1
+            if (self.rodzaj_rat == RodzajRat.bezpieczny) & (numer_raty > 120):
+                tabela_splat.loc[i] = [
+                    numer_raty,
+                    zadluzenia_po[i - 120],
+                    kapitalowe_po[i - 120],
+                    odsetkowe_po[i - 120],
+                    0,
+                    kapitalowe_po[i - 120] + odsetkowe_po[i - 120],
+                    zadluzenia_po[i - 120] - kapitalowe_po[i - 120],
+                ]
+            else:
+                tabela_splat.loc[i] = [
+                    numer_raty,
+                    zadluzenia[i],
+                    kapitalowe[i],
+                    odsetkowe[i],
+                    do_doplaty(numer_raty, zadluzenia[i]),
+                    kapitalowe[i] + odsetkowe[i],
+                    zadluzenia[i] - kapitalowe[i],
+                ]
+
+        # zmiana typu kolumny
+        tabela_splat["Numer raty"] = tabela_splat["Numer raty"].astype(int)
+
+    def harm_rowne(self, pozostalo=None):
+        k = self.k  # okres_splat(miesiecznie-12)
+        r = self.r  # oprocentowanie
+        if self.rodzaj_rat == RodzajRat.bezpieczny:
+            n = self.ilosc_rat - (self.okres_splat.value * 10)
+            kredyt = pozostalo
+        else:
+            n = self.ilosc_rat  # ilosc_rat
+            kredyt = self.kapital
+        pozostale_zadluzenie = kredyt
+        # suma = 0
+
+        kapitalowe = []
+        odsetkowe = []
+        zadluzenia = [kredyt]
+
+        sumka = 0
+        for i in range(1, n + 1):
+            sumka += (1 + (r / k)) ** (-i)
+
+        rata = round(kredyt / sumka, 2)
+        # raty = [rata for i in range(n)]
+
+        for i in range(n):
+            czesc_odsetkowa = round(pozostale_zadluzenie * r / k, 2)
+            odsetkowe.append(czesc_odsetkowa)
+            kapitalowe.append(round(rata - czesc_odsetkowa, 2))
+
+            pozostale_zadluzenie -= rata - czesc_odsetkowa
+            zadluzenia.append(pozostale_zadluzenie)
+            # suma += czesc_odsetkowa
+        return kapitalowe, odsetkowe, zadluzenia
+
+    def harm_malejace(self):
         k = self.k  # okres_splat(miesiecznie-12)
         r = self.r  # oprocentowanie
         n = self.ilosc_rat  # ilosc_rat
         kredyt = self.kapital
-
         pozostale_zadluzenie = kredyt
-        suma = 0
+        # suma = 0
+        czesc_kapitalowa = round(kredyt / n, 2)
 
-        if self.rodzaj_rat == RodzajRat.malejace:
-            czesc_kapitalowa = round(kredyt / n, 2)
+        kapitalowe = [czesc_kapitalowa for i in range(n)]
+        odsetkowe = []
+        zadluzenia = [kredyt]
 
-            kapitalowe = [czesc_kapitalowa for i in range(n)]
-            odsetkowe = []
-            raty = []
-            zadluzenia = [kredyt]
+        for i in range(n):
+            czesc_odsetkowa = round(pozostale_zadluzenie * r / k, 2)
+            odsetkowe.append(czesc_odsetkowa)
 
-            for i in range(n):
-                czesc_odsetkowa = round(pozostale_zadluzenie * r / k, 2)
-                odsetkowe.append(czesc_odsetkowa)
-                raty.append(czesc_kapitalowa + czesc_odsetkowa)
+            pozostale_zadluzenie -= czesc_kapitalowa
+            zadluzenia.append(pozostale_zadluzenie)
+            # suma += czesc_odsetkowa
 
-                pozostale_zadluzenie -= czesc_kapitalowa
-                zadluzenia.append(pozostale_zadluzenie)
-                suma += czesc_odsetkowa
-
-        if self.rodzaj_rat == RodzajRat.rowne:
-            kapitalowe = []
-            odsetkowe = []
-            zadluzenia = [kredyt]
-
-            sumka = 0
-            for i in range(1, n + 1):
-                sumka += (1 + (r / k)) ** (-i)
-
-            rata = round(kredyt / sumka, 2)
-            # raty = [rata for i in range(n)]
-
-            for i in range(n):
-                czesc_odsetkowa = round(pozostale_zadluzenie * r / k, 2)
-                odsetkowe.append(czesc_odsetkowa)
-                kapitalowe.append(round(rata - czesc_odsetkowa, 2))
-
-                pozostale_zadluzenie -= rata - czesc_odsetkowa
-                zadluzenia.append(pozostale_zadluzenie)
-                suma += czesc_odsetkowa
-
-        # def generuj_harmonogram2(self):
-        tabela_splat = self.tabela_splat
-        # kapitalowe = []
-        # odsetkowe = []
-        # zadluzenia = [kredyt]
-
-        for i in range(self.ilosc_rat - 1):
-            numer_raty = i + 1
-
-            # Wskaźnik średniej kwartalnej stopy procentowej BGK
-            def do_doplaty(nr_raty, pozostaly_kapital):
-                if (nr_raty > 10 * k) | (self.rodzaj_rat == RodzajRat.rowne):
-                    return 0
-                return round(
-                    pozostaly_kapital * ((self.wskaznikBGK / 100) - 0.02) / k, 2
-                )
-
-            tabela_splat.loc[i] = [
-                numer_raty,
-                zadluzenia[i],
-                kapitalowe[i],
-                odsetkowe[i],
-                do_doplaty(numer_raty, zadluzenia[i]),
-                kapitalowe[i] + odsetkowe[i],
-                zadluzenia[i] - kapitalowe[i],
-            ]
-
-        # zmiana typu kolumny
-        tabela_splat["Numer raty"] = tabela_splat["Numer raty"].astype(int)
+        return kapitalowe, odsetkowe, zadluzenia
 
     def generuj_harmonogram(self, oblicz_nowa_laczna: bool = True):
         # if oblicz_nowa_laczna:
@@ -258,3 +282,12 @@ class Kalkulator:
             raise Exception("Brak wygenerowanego harmonogramu")
         else:
             return self.tabela_splat
+
+
+Kalkulator(
+    kwota_kredytu=111111,
+    ilosc_lat=22,
+    stopa_procentowa=4,
+    rodzaj_rat=RodzajRat.bezpieczny,
+    wskaznikBGK=4,
+)

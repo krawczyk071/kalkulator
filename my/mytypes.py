@@ -4,6 +4,7 @@ from enum import Enum
 class RodzajRat(Enum):
     malejace = "Stałe raty kapitałowe"
     rowne = "Stałe raty łączne"
+    bezpieczny = "Program bezpiecznyt kredyt 2%"
 
 
 class RodzajKapitalizacji(Enum):
