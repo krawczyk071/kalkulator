@@ -175,14 +175,19 @@ class Kalkulator:
             numer_raty = i + 1
 
             # Wskaźnik średniej kwartalnej stopy procentowej BGK
-            doplata = round(self.kapital * ((self.wskaznikBGK / 100) - 0.02) / k,2) if self.rodzaj_rat == RodzajRat.malejace else 0
+            def do_doplaty(nr_raty, pozostaly_kapital):
+                if (nr_raty > 10 * k) | (self.rodzaj_rat == RodzajRat.rowne):
+                    return 0
+                return round(
+                    pozostaly_kapital * ((self.wskaznikBGK / 100) - 0.02) / k, 2
+                )
 
             tabela_splat.loc[i] = [
                 numer_raty,
                 zadluzenia[i],
                 kapitalowe[i],
                 odsetkowe[i],
-                doplata if i < 10 * k else 0,
+                do_doplaty(numer_raty, zadluzenia[i]),
                 kapitalowe[i] + odsetkowe[i],
                 zadluzenia[i] - kapitalowe[i],
             ]
