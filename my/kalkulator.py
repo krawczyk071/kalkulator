@@ -16,6 +16,8 @@ class Kalkulator:
         ilosc_lat: int = 10,
         rodzaj_oprocentowania: RodzajOprocentowania = RodzajOprocentowania.zmienne,
         stopa_procentowa: float = 8,
+        stopa_procentowa2: float = None,
+        stopa_procentowa3: float = None,
         wskaznikBGK: float = 7.14,
         rodzaj_rat: RodzajRat = RodzajRat.rowne,
         r_kapitalizacji: RodzajKapitalizacji = RodzajKapitalizacji.ciagla,
@@ -33,6 +35,8 @@ class Kalkulator:
         self.m = okres_kapitalizacji.value
         self.k = okres_splat.value
         self.r = stopa_procentowa / 100
+        self.r2 = stopa_procentowa2 / 100 if stopa_procentowa2 else self.r
+        self.r3 = stopa_procentowa3 / 100 if stopa_procentowa3 else self.r2
 
         self.columns = [
             "Numer raty",
@@ -46,13 +50,12 @@ class Kalkulator:
         self.tabela_splat = pd.DataFrame(columns=self.columns)
 
         # self._calc_rata_laczna()
-        self.oblicz_kapitalizacje()
-        self.oblicz_laczna_rate()
+        # self.oblicz_kapitalizacje()
+        # self.oblicz_laczna_rate()
 
         self.rata_kapitalowa = round(self.kapital / self.ilosc_rat, 2)
 
-        # self.generuj_harmonogram()
-        self.inaczej()
+        self.generuj_harmonogram()
 
     def _set_ilosc_rat(self, okres_splat, ilosc_lat):
         if ilosc_lat <= 35:
@@ -60,69 +63,23 @@ class Kalkulator:
         else:
             raise Exception("Kredyt może trwać maksymalnie 35 lat!")
 
-    # def _calc_rata_laczna(self):
+    # def oblicz_kapitalizacje(self):
+    #     r = self.r
+    #     k = self.k
+    #     m = self.m
     #     if self.r_kapitalizacji == RodzajKapitalizacji.ciagla:
-    #         self.kapitalizacja = math.exp((self.r / self.k))
-    #         self.rata_laczna = round(
-    #             (
-    #                 self.kapital
-    #                 * math.exp(self.r / self.k * self.ilosc_rat)
-    #                 * (math.exp(self.r / self.k) - 1)
-    #                 / (math.exp(self.r / self.k * self.ilosc_rat) - 1)
-    #             ),
-    #             2,
-    #         )
+    #         self.kapitalizacja = math.exp((r / k))
     #     elif self.r_kapitalizacji == RodzajKapitalizacji.okresowa:
-    #         self.kapitalizacja = (1 + self.r / self.m) ** (self.m / self.k)
-    #         self.rata_laczna = round(
-    #             (
-    #                 self.kapital
-    #                 * self.r
-    #                 / (self.k * (1 - (self.k / (self.k + self.r)) ** self.ilosc_rat))
-    #             ),
-    #             2,
-    #         )
+    #         self.kapitalizacja = (1 + r / m) ** (m / k)
     #     else:
     #         raise Exception("Nieznany rodzaj kapitalizacji")
-    def oblicz_kapitalizacje(self):
-        r = self.r
-        k = self.k
-        m = self.m
-        if self.r_kapitalizacji == RodzajKapitalizacji.ciagla:
-            self.kapitalizacja = math.exp((r / k))
-        elif self.r_kapitalizacji == RodzajKapitalizacji.okresowa:
-            self.kapitalizacja = (1 + r / m) ** (m / k)
-        else:
-            raise Exception("Nieznany rodzaj kapitalizacji")
 
-    def oblicz_laczna_rate(self):
-        r = self.r
-        n = self.ilosc_rat
-        k = self.k
-        self.rata_kapitalowa = round(self.kapital / n, 2)
-        if self.r_kapitalizacji == RodzajKapitalizacji.ciagla:
-            self.rata_laczna = round(
-                (
-                    self.kapital
-                    * math.exp(r / k * n)
-                    * (math.exp(r / k) - 1)
-                    / (math.exp(r / k * n) - 1)
-                ),
-                2,
-            )
-        elif self.r_kapitalizacji == RodzajKapitalizacji.okresowa:
-            self.rata_laczna = round(
-                (self.kapital * r / (k * (1 - (k / (k + r)) ** n))), 2
-            )
-        else:
-            raise Exception("Nieznany rodzaj kapitalizacji")
-
-    def inaczej(self):
+    def generuj_harmonogram(self):
         # m = self.m #okres_kapitalizacji(ciagla)
         tabela_splat = self.tabela_splat
 
         def do_doplaty(nr_raty, pozostaly_kapital):
-            if (nr_raty > 120) | (self.rodzaj_rat == RodzajRat.bezpieczny):
+            if (nr_raty > 120) | (self.rodzaj_rat != RodzajRat.bezpieczny):
                 return 0
             return round(pozostaly_kapital * ((self.wskaznikBGK / 100) - 0.02) / 12, 2)
 
@@ -165,7 +122,7 @@ class Kalkulator:
 
     def harm_rowne(self, pozostalo=None):
         k = self.k  # okres_splat(miesiecznie-12)
-        r = self.r  # oprocentowanie
+        r = self.r3  # oprocentowanie
         if self.rodzaj_rat == RodzajRat.bezpieczny:
             n = self.ilosc_rat - (self.okres_splat.value * 10)
             kredyt = pozostalo
@@ -198,84 +155,32 @@ class Kalkulator:
 
     def harm_malejace(self):
         k = self.k  # okres_splat(miesiecznie-12)
-        r = self.r  # oprocentowanie
+        r = self.r  # oprocentowanie w pierwszym 5leciu
+        r2 = self.r2  # oprocentowanie w 2 5 leciu
         n = self.ilosc_rat  # ilosc_rat
         kredyt = self.kapital
         pozostale_zadluzenie = kredyt
-        # suma = 0
         czesc_kapitalowa = round(kredyt / n, 2)
 
         kapitalowe = [czesc_kapitalowa for i in range(n)]
         odsetkowe = []
         zadluzenia = [kredyt]
 
-        for i in range(n):
+        def calc_rata_odsetkowa(r):
+            nonlocal pozostale_zadluzenie
             czesc_odsetkowa = round(pozostale_zadluzenie * r / k, 2)
             odsetkowe.append(czesc_odsetkowa)
 
             pozostale_zadluzenie -= czesc_kapitalowa
             zadluzenia.append(pozostale_zadluzenie)
-            # suma += czesc_odsetkowa
+
+        for i in range(n):
+            if i < k * 5:
+                calc_rata_odsetkowa(r)
+            else:
+                calc_rata_odsetkowa(r2)
 
         return kapitalowe, odsetkowe, zadluzenia
-
-    def generuj_harmonogram(self, oblicz_nowa_laczna: bool = True):
-        # if oblicz_nowa_laczna:
-        #     self.oblicz_laczna_rate()
-
-        # self.oblicz_kapitalizacje()
-        tabela_splat = self.tabela_splat
-        kapital = self.kapital
-        rata_laczna = self.rata_laczna
-        rata_kapitalowa = self.rata_kapitalowa
-
-        for i in range(self.ilosc_rat - 1):
-            numer_raty = i + 1
-            # nie potrzbnie dolicza odsetki do pierwszej raty?
-            k0 = round(kapital * self.kapitalizacja, 2)
-            odsetki = round(k0 - kapital, 2)
-
-            if self.rodzaj_rat == RodzajRat.rowne:
-                rata_kapitalowa = rata_laczna - odsetki
-            elif self.rodzaj_rat == RodzajRat.malejace:
-                rata_laczna = rata_kapitalowa + odsetki
-            k1 = k0 - rata_laczna
-            # Wskaźnik średniej kwartalnej stopy procentowej BGK
-            # wBGK=7.14
-            doplata = (
-                kapital * ((self.wskaznikBGK / 100) - 0.02) / self.okres_splat.value
-            )
-            if k1 < 0:
-                continue
-            tabela_splat.loc[i] = [
-                numer_raty,
-                k0,
-                rata_kapitalowa,
-                odsetki,
-                doplata,
-                rata_laczna,
-                k1,
-            ]
-            kapital = k1
-        # OSTATNIA
-        # Ostatnia rata może mieć inną kwotę kapitałową i łączną niż poprzednie raty
-        # (kapitału może pozostać mniej lub więcej niż kwota równej raty łącznej
-        k0 = round(kapital * self.kapitalizacja, 2)
-        odsetki = round(k0 - kapital, 2)
-        tabela_splat.loc[self.ilosc_rat - 1] = [
-            self.ilosc_rat,
-            k0,
-            kapital,
-            odsetki,
-            0,
-            k0,
-            0,
-        ]
-
-        # zmiana typu kolumny
-        tabela_splat["Numer raty"] = tabela_splat["Numer raty"].astype(int)
-
-        # return tabela_splat
 
     def harmonogram_to_DF(self):
         if self.tabela_splat.empty:
