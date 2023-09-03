@@ -4,6 +4,7 @@ from PIL import ImageTk
 import PIL.Image
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 from tkinter.filedialog import askopenfilename, askopenfilenames, askdirectory
 
 
@@ -33,7 +34,7 @@ class Frame(ttk.Frame):
 class Label(ttk.Label):
     def __init__(self, master, txt):
         super().__init__(master, text=txt)
-        self.pack(),
+        self.pack()
 
 
 class TextOutput(tk.Text):
@@ -132,6 +133,61 @@ class FileDialog(ttk.Button):
             # filedialog.askopenfiles()
 
 
+class MessageBox:
+    def __init__(self):
+        self.response = None
+
+    def get(self):
+        return self.response
+
+    @staticmethod
+    def showinfo(title=None, message=None, **options):
+        "Show an info message"
+        return messagebox.showinfo(title, message, **options)
+
+    @staticmethod
+    def showwarning(title=None, message=None, **options):
+        "Show a warning message"
+        return messagebox.showwarning(title, message, **options)
+
+    @staticmethod
+    def showerror(title=None, message=None, **options):
+        "Show an error message"
+        return messagebox.showerror(title, message, **options)
+
+    def askquestion(self, title=None, message=None, **options):
+        "Ask a question"
+        # return messagebox.askquestion(title, message, **options)
+        s = messagebox.askquestion(title, message, **options)
+        self.response = s
+
+    def askokcancel(self, title=None, message=None, **options):
+        "Ask if operation should proceed; return true if the answer is ok"
+        s = messagebox.askokcancel(title, message, **options)
+        self.response = s
+
+    def askyesno(self, title=None, message=None, **options):
+        "Ask a question; return true if the answer is yes"
+        s = messagebox.askyesno(title, message, **options)
+        self.response = s
+
+    def askyesnocancel(self, title=None, message=None, **options):
+        "Ask a question; return true if the answer is yes, None if cancelled."
+        s = messagebox.askyesnocancel(title, message, **options)
+        # s might be a Tcl index object, so convert it to a string
+        self.response = s
+
+    def askretrycancel(self, title=None, message=None, **options):
+        "Ask if operation should be retried; return true if the answer is yes"
+        s = messagebox.askretrycancel(title, message, **options)
+        self.response = s
+
+
+#     def __init__(self, master, txt):
+#         super().__init__(master, text=txt)
+#         self.pack()
+
+
 def testprint(x):
     print(x)
 
@@ -141,11 +197,16 @@ frm1 = Frame(gui)
 lbl1 = Label(frm1, "test1")
 btn1 = Button(frm1, "test1x", testprint)
 btn2 = Button(frm1, "test1y", lambda: testprint("yy"))
-img1 = Image(frm1, "wykres1.png", width=100, height=100)
+# img1 = Image(frm1, "wykres1.png", width=100, height=100)
 ipt1 = Input(frm1)
 btn1 = Button(frm1, "print ipt", lambda: print(ipt1.get()))
 txt1 = TextOutput(frm1, "test1")
 fd1 = FileDialog(frm1, "open", "files")
 btn2 = Button(frm1, "destroy", lambda: frm1.clear_widgets())
+# messagebox.showinfo("showinfo", "Information")
+msg1 = MessageBox()
+msg1.askquestion("q1", "ask me")
+
+btn3 = Button(frm1, "print ipt", lambda: print(msg1.get()))
 
 gui.mainloop()
