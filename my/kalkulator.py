@@ -6,8 +6,8 @@ from mytypes import *
 
 
 class Kalkulator:
-    laczne_odsetki = 0
-    ostatnia_zmiana = 0
+    # laczne_odsetki = 0
+    # ostatnia_zmiana = 0
 
     def __init__(
         self,
@@ -46,6 +46,8 @@ class Kalkulator:
             "Dopłata",
             "Rata łączna",
             "Kapitał na koniec okresu",
+            "Odsetki_po",
+            "po_laczna",
         ]
         self.tabela_splat = pd.DataFrame(columns=self.columns)
 
@@ -84,43 +86,50 @@ class Kalkulator:
             return round(pozostaly_kapital * ((self.wskaznikBGK / 100) - 0.02) / 12, 2)
 
         if self.rodzaj_rat == RodzajRat.malejace:
-            kapitalowe, odsetkowe, zadluzenia = self.harm_malejace()
+            kapitalowe, odsetkowe, zadluzenia = self._harm_malejace()
         if self.rodzaj_rat == RodzajRat.rowne:
-            kapitalowe, odsetkowe, zadluzenia = self.harm_rowne()
+            kapitalowe, odsetkowe, zadluzenia = self._harm_rowne()
 
         if self.rodzaj_rat == RodzajRat.bezpieczny:
-            kapitalowe, odsetkowe, zadluzenia = self.harm_malejace()
-            kapitalowe_po, odsetkowe_po, zadluzenia_po = self.harm_rowne(
+            kapitalowe, odsetkowe, zadluzenia = self._harm_malejace()
+            # bo doplaty przez 10lat a pozniej rowne
+            kapitalowe_po, odsetkowe_po, zadluzenia_po = self._harm_rowne(
                 pozostalo=zadluzenia[120]
             )
 
         for i in range(self.ilosc_rat - 1):
             numer_raty = i + 1
             if (self.rodzaj_rat == RodzajRat.bezpieczny) & (numer_raty > 120):
+                step = 120
                 tabela_splat.loc[i] = [
                     numer_raty,
-                    zadluzenia_po[i - 120],
-                    kapitalowe_po[i - 120],
-                    odsetkowe_po[i - 120],
+                    zadluzenia_po[i - step],
+                    kapitalowe_po[i - step],
+                    odsetkowe_po[i - step],
                     0,
-                    kapitalowe_po[i - 120] + odsetkowe_po[i - 120],
-                    zadluzenia_po[i - 120] - kapitalowe_po[i - 120],
+                    kapitalowe_po[i - step] + odsetkowe_po[i - step],
+                    zadluzenia_po[i - step] - kapitalowe_po[i - step],
+                    odsetkowe_po[i - step] - 0,
+                    kapitalowe_po[i - step] + odsetkowe_po[i - step] - 0,
                 ]
             else:
+                doplata = do_doplaty(numer_raty, zadluzenia[i])
                 tabela_splat.loc[i] = [
                     numer_raty,
                     zadluzenia[i],
                     kapitalowe[i],
                     odsetkowe[i],
-                    do_doplaty(numer_raty, zadluzenia[i]),
+                    doplata,
                     kapitalowe[i] + odsetkowe[i],
                     zadluzenia[i] - kapitalowe[i],
+                    odsetkowe[i] - doplata,
+                    kapitalowe[i] + odsetkowe[i] - doplata,
                 ]
 
         # zmiana typu kolumny
         tabela_splat["Numer raty"] = tabela_splat["Numer raty"].astype(int)
 
-    def harm_rowne(self, pozostalo=None):
+    def _harm_rowne(self, pozostalo=None):
         k = self.k  # okres_splat(miesiecznie-12)
         r = self.r3  # oprocentowanie
         if self.rodzaj_rat == RodzajRat.bezpieczny:
@@ -153,7 +162,7 @@ class Kalkulator:
             # suma += czesc_odsetkowa
         return kapitalowe, odsetkowe, zadluzenia
 
-    def harm_malejace(self):
+    def _harm_malejace(self):
         k = self.k  # okres_splat(miesiecznie-12)
         r = self.r  # oprocentowanie w pierwszym 5leciu
         r2 = self.r2  # oprocentowanie w 2 5 leciu
@@ -188,11 +197,49 @@ class Kalkulator:
         else:
             return self.tabela_splat
 
+    def raty_to_list(self) -> list:
+        return self.tabela_splat["po_laczna"].apply(round).to_list()
+
+    def totals_to_dict(self, short=False) -> dict:
+        if self.tabela_splat.empty:
+            raise Exception("Brak wygenerowanego harmonogramu")
+        else:
+            new = [
+                "total_kapital",
+                "bezdoplaty_total_odsetki",
+                "total_doplata",
+                "bezdoplaty_total_raty",
+                "total_odsetki",
+                "total_raty",
+            ]
+            old = [
+                "Rata kapitałowa",
+                "Rata odsetkowa",
+                "Dopłata",
+                "Rata łączna",
+                "Odsetki_po",
+                "po_laczna",
+            ]
+
+            cols_renamer = dict(zip(old, new))
+            df_new = self.tabela_splat[old].rename(columns=cols_renamer)
+
+            tot_dict = df_new.sum().apply(round).to_dict()
+            if short == False:
+                return tot_dict
+            else:
+                return {
+                    k: v
+                    for k, v in tot_dict.items()
+                    if k in ["total_doplata", "total_odsetki", "total_raty"]
+                }
+
 
 Kalkulator(
-    kwota_kredytu=111111,
-    ilosc_lat=22,
-    stopa_procentowa=4,
+    kwota_kredytu=450000,
+    ilosc_lat=20,
+    stopa_procentowa=7.14,
+    stopa_procentowa3=9,
     rodzaj_rat=RodzajRat.bezpieczny,
-    wskaznikBGK=4,
+    wskaznikBGK=7.14,
 )
